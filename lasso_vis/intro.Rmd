@@ -1,0 +1,67 @@
+---
+title: "Introduction to Logistic LASSO Regression"
+author: "Johnson Phosavanh"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    theme: flatly
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## What is Logisitc Regression?
+Logistic regression is binary classifier that outputs a probability which can be mapped to a class, where the outcome is encoded as 0s and 1s.
+
+Logistic regression comes under the family of generalised linear models (GLMs) by extending a linear model to model a response variable via an invertible link function and a probability distribution. In the case of logistic regression, we have the following
+
+- a linear predictor
+$$g(\mathbf{x}_i)=\beta_0+\beta_1x_{i1}+\beta_2x_{i2}+\dots+\beta_px_{ip},$$
+- a link function (the logistic function)
+$$\pi_i=\frac{1}{1+\exp(-g(\mathbf{x}_i))}=\frac{\exp(g(\mathbf{x}_i))}{1+\exp(g(\mathbf{x}_i))},$$
+- a probababilistic distribution
+$$Y_i|X_i=\mathbf{x}_i\sim \text{Bernoulli}(\pi_i).$$
+
+The fitted value for an observed $\mathbf{x}_0$ is
+$$\hat{Y}=\frac{1}{1+\exp\left[-\left(\hat{\beta}_0+\hat{\beta}_1x_{01}+\hat{\beta}_2x_{02}+\dots+\hat{\beta}_px_{0p}\right)\right]}.$$
+
+### How do we find $\hat{\boldsymbol{\beta}}$?
+
+
+### How do I fit a logistic regression model in R?
+
+```{r, eval = F}
+glm(y ~ x, data = dat, family = binomial)
+```
+
+
+### Issues with logisitc regression
+
+## LASSO Logistic Regression
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
