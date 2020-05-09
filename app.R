@@ -13,7 +13,10 @@ load("reduced_dat.RData")
 
 n = length(binary_outcome)
 train_id = sample(1:n, round(n/2))
-reduced_dat = reduced_dat[, 1:20]
+p = 20
+reduced_dat = reduced_dat[, 1:p]
+
+gene_names = colnames(reduced_dat)
 
 X_train = reduced_dat[train_id, ]
 X_test = reduced_dat[-train_id, ]
@@ -68,20 +71,14 @@ ui = navbarPage(theme = shinytheme("flatly"),
                                               c("Accuracy" = "Accuracy",
                                                 "Precision" = "Precision",
                                                 "Recall" = "Recall",
-                                                "F1 score" = "F1")),
+                                                "F1-score" = "F1")),
                                  ),
                         mainPanel(
                             verbatimTextOutput("confus_mat"),
-                            plotlyOutput("shrinkage"),
-                            plotlyOutput("metric_analysis")
+                            plotlyOutput("shrinkage", height = 270),
+                            plotlyOutput("metric_analysis", height = 270)
                             )
                         )
-                    ),
-                tabPanel("Additional information",
-                         tags$div(tags$br(),
-                                  tags$br(),
-                                  tags$br())
-                    
                     )
                 )
 
@@ -116,8 +113,8 @@ server = function(input, output, session) {
         lambdas = new_model()$lambdas
         betas = new_model()$betas
         unique_idx = !duplicated(lambdas)
-        
-        df = data.frame(lambda = lambdas[unique_idx], betas[unique_idx, ])
+        df = as.data.frame(cbind(lambda = lambdas[unique_idx], matrix(betas[unique_idx,], ncol = p)))
+        colnames(df) = c("lambda", gene_names)
         
         df_long = df %>% pivot_longer(cols = 2:ncol(df),
                                       names_to = "gene",
@@ -126,8 +123,13 @@ server = function(input, output, session) {
         
         p = df_long %>% 
             ggplot(aes(x = lambda, y = coefficient, colour = gene)) +
+            geom_point() +
             geom_line() +
-            geom_hline(yintercept = 0, colour = "black")
+            geom_hline(yintercept = 0, colour = "black") +
+            labs(title = "The LASSO path",
+                 y = "Coefficients",
+                 x = "lambda",
+                 colour = "Gene")
         
         plot = ggplotly(p) %>%
             layout(yaxis = list(hoverformat = ".2d"))
@@ -139,13 +141,22 @@ server = function(input, output, session) {
         unique_idx = !duplicated(lambdas)
         df = data.frame(cbind(lambda = lambdas[unique_idx], matrix(metrics[unique_idx, ], ncol = 4)))
         
+        if (input$metric == "F1"){
+            y_label = "F1-score"
+        } else {
+            y_label = input$metric
+        }
+        
         
         names(df) = c("lambda", "Accuracy", "Precision", "Recall", "F1")
         
         df_select = df %>% select(lambda, input$metric)
         
         p = df_select %>% ggplot(aes(x = lambda, y = !!sym(input$metric))) +
-            geom_line()
+            geom_line() +
+            labs(title = "Metric plot",
+                 y = y_label,
+                 x = "lambda")
         
         ggplotly(p)
         

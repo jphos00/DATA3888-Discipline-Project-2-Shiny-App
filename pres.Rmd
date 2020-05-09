@@ -1,0 +1,174 @@
+---
+title: "Introduction to Logistic LASSO Regression"
+author: "480370020"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  ioslides_presentation:
+    theme: flatly
+    toc: true
+    toc_float: true
+    widescreen: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(plotly)
+load("reduced_dat.RData")
+```
+
+
+# What is logistic regression?
+## What is logistic regression?
+Logistic regression is binary classifier that outputs a probability which can be mapped to a class, where the outcome is encoded as 0s and 1s.
+
+Logistic regression comes under the family of generalised linear models (GLMs) by extending a linear model to model a response variable via an invertible link function and a probability distribution.
+
+## What is logistic regression?
+
+In the case of logistic regression, we have the following
+
+- a linear predictor
+$$g(\mathbf{x}_i)=\beta_0+\beta_1x_{i1}+\beta_2x_{i2}+\dots+\beta_px_{ip},$$
+- a link function (the logistic function)
+$$\pi_i=\frac{1}{1+\exp(-g(\mathbf{x}_i))}=\frac{\exp(g(\mathbf{x}_i))}{1+\exp(g(\mathbf{x}_i))},$$
+- a probabilistic distribution
+$$Y_i|X_i=\mathbf{x}_i\sim \text{Bernoulli}(\pi_i).$$
+
+## How do we find ${\boldsymbol{\beta}}$?
+
+We form the log-likelihood function ($\ell(\boldsymbol{\beta})$) assuming that the data came from the model described above. We maximise the log-likelihood with respect to the parameter vector $\boldsymbol{\beta}$ and the estimate of $\boldsymbol{\beta}$ is the vector that maximises the log-likelihood.
+
+\[\hat{\boldsymbol{\beta}}=\underset{\boldsymbol{\beta}}{\text{argmax}}\ \left\{\ell(\boldsymbol{\beta})\right\}\]
+
+## Issues with logistic regression
+
+ - To build a model with decent performance, you need to know what variables are worth including in the model.
+ - Logistic regression models may overfit the data. 
+ - Although stepwise models can be used, not all parts of the predictor space may be analysed.
+
+# LASSO logistic regression
+## LASSO logistic regression
+The LASSO (Least Absolute Shrinkage and Selection Operator) is used to perform $\ell_1$ **regularisation** with logistic regression. 
+
+Regularisation is the process of penalising model complexity. In terms of the LASSO, we penalise the coefficients of the model $\boldsymbol{\beta}$ with respect to the $\ell_1$-norm. Conceptually, if we shrink the magnitude of the $\beta_i$'s, we decrease the ability of the learning algorithm to fit a model that may appropriately fit the training data. 
+
+To find the LASSO estimates, we now solve the optimisation problem:
+
+\[\hat{\boldsymbol{\beta}}=\underset{\boldsymbol{\beta}}{\text{argmin}}\ \left\{-\ell(\boldsymbol{\beta})+\color{red}\lambda\sum_{i=1}^p\left|\beta_i\right|\right\},\]
+where $\lambda\geq0$ is a hyperparameter.
+
+## LASSO logistic regression
+\[\hat{\boldsymbol{\beta}}=\underset{\boldsymbol{\beta}}{\text{argmin}}\ \left\{-\ell(\boldsymbol{\beta})+\color{red}\lambda\sum_{i=1}^p\left|\beta_i\right|\right\}\]
+
+The first term is the negative log-likelihood and the second term is the $\ell_1$ norm of the coefficient vector times by the hyperparameter $\lambda$.
+
+If $\lambda=0$, the above problem reduces to finding the estimates of a normal logistic regression. If $\lambda=\infty$, this is equivalent to using a constant to the linear predictor. The first model is the model with the most complexity, the second the model with the least complexity. By varying $\lambda$, we can obtain a model with sufficient complexity to model the relationship without overfitting.
+
+## LASSO logistic regression
+```{r lasso-path, echo = FALSE, fig.cap = "Effect of varying \\(\\lambda\\) on model parameters \\(\\beta\\) of the top 20 most different genes from the GSE21374 Series from the Gene Expression Omnibus (GEO)."}
+lambdas = seq(0, 0.3, length.out = 100)
+
+fit = glmnet::glmnet(x=as.matrix(reduced_dat), binary_outcome, family = "binomial", lambda = lambdas)
+coeff_df = data.frame(lambda = rev(lambdas),
+                      fit$beta %>% as.matrix() %>% t())
+
+coeff_long = coeff_df %>% pivot_longer(cols = X226474_at:X204279_at,
+                                      names_to = "variable",
+                                      values_to = "coefficient")
+
+p = coeff_long %>% 
+  ggplot(aes(x = lambda, y = coefficient, colour = variable)) +
+  geom_point() +
+  geom_line() +
+  geom_hline(yintercept = 0, colour = "black") +
+  labs(title = "The LASSO path",
+       y = "Coefficients",
+       x = "lambda",
+       colour = "Gene")
+
+ggplotly(p) %>% 
+ layout(annotations = 
+ list(x = 0.227, y = -2.5, 
+      text = "Data source: Gene Expression Omnibus GSE21374", 
+      showarrow = F,
+      font=list(size=10))
+ )
+```
+
+## Finding the optimal $\lambda$
+
+We use cross validation to find the optimal $\lambda$. 
+
+```{r metric-plot, echo = FALSE, fig.cap = "Effect of varying \\(\\lambda\\) on the cross validation F1 score."}
+calc_metrics = function(pred, y_test){
+    confus_tab = caret::confusionMatrix(factor(pred, levels = c(0, 1)), factor(y_test, levels = c(0, 1)))$table
+  
+    TN = confus_tab[1, 1]; FN = confus_tab[1, 2]
+    FP = confus_tab[2, 1]; TP = confus_tab[2, 2]
+    
+    accuracy = (TN + TP)/(TP + FN + FP + TN)
+    precision = (TP)/(TP+FP)
+    recall = (TP)/(TP+FN)
+    F1 = 2*(precision * recall)/(precision + recall)
+    
+    metrics = c(accuracy, precision, recall, F1)
+    metrics = ifelse(is.na(metrics), 0, metrics)
+    
+    metrics[4]
+}
+
+set.seed(1)
+n = nrow(reduced_dat)
+cvK = 5
+cvSets = cvTools::cvFolds(n, cvK)  # permute all the data, into 5 folds
+
+metric_table = matrix(nrow = cvK, ncol = length(lambdas))
+
+for (j in 1:cvK) {
+  test_id = cvSets$subsets[cvSets$which == j]
+  X_test = reduced_dat[test_id, ]
+  X_train = reduced_dat[-test_id, ]
+  y_test = binary_outcome[test_id]
+  y_train = binary_outcome[-test_id]
+  fit = glmnet::glmnet(x=as.matrix(X_train), y_train, family = "binomial", lambda = lambdas)
+  prediction = predict(fit, type = "response", newx=as.matrix(X_test)) %>% 
+    round() %>%
+    as.data.frame() %>% 
+    lapply(., factor, levels = c(0,1)) %>% 
+    as.data.frame()
+  colnames(prediction) = lambdas
+  
+  
+  metric_table[j,] = lapply(prediction, calc_metrics, y_test) %>% unlist()
+}
+colnames(metric_table) = rev(lambdas)
+
+model_summary = metric_table %>% 
+  apply(., 2, mean) %>% 
+  data.frame() %>% 
+  rownames_to_column(., "lambda") %>% 
+  rename("F1" = ".") %>% 
+  mutate(lambda = as.numeric(lambda))
+
+p = model_summary %>% ggplot(aes(x = lambda, y = F1)) +
+  geom_line() +
+  labs(title = "Cross validation F1 score for different lambdas",
+       y = "F1 Score",
+       x = "lambda")
+        
+ggplotly(p)
+
+```
+
+## Logistic LASSO technical details
+
+The features are typically standardised so that no one parameter is preferred in the optimisation scheme (this is the default option in the `glmnet` implementation). 
+
+The intercept coefficient is not penalised as it does not correspond to a predictor.
+
+The LASSO can be used to find a subset of predictors which are important in explaining the relationship in the data as non-important variable coefficients will be shrunk to 0 (hence its also also conducts variable selection). 
+
+As $\lambda$ is increased the magnitude of the coefficients of the model may **increase or decrease**. Some features may become **more** important when we increase $\lambda$.
+
+
