@@ -3,7 +3,7 @@ A repository for the DATA3888 Discipline Project 2 Shiny App
 
 
 # Requirements
-This app requires R 3.6.3 and the followign packages
+This app requires R 3.6.3 and the following packages:
 
 - `shiny`
 - `shinythemes`
@@ -14,7 +14,7 @@ This app requires R 3.6.3 and the followign packages
 
 # How to run the app?
 
-You can either clone this repository to your local machine or you can run the following in your R console
+You can either clone this repository to your local machine or you can run the following in your R console:
 
 ```
 shiny::runGitHub(
