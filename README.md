@@ -12,7 +12,7 @@ This app requires R 3.6.3 and the following packages:
 - `plotly`
 - `caret`
 
-## How to run the app?
+## How to run the app
 
 You can either clone this repository to your local machine or you can run the following in your R console:
 
