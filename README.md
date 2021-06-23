@@ -19,6 +19,6 @@ You can either clone this repository to your local machine or you can run the fo
 ```
 shiny::runGitHub(
     repo = "DATA3888-Discipline-Project-2-Shiny-App", 
-    username = "jphos00", 
+    username = "jphosavanh", 
     ref = "master")
 ```
